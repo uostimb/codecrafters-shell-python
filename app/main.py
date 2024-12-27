@@ -98,9 +98,16 @@ class Shell:
         """
         Handle echo commands.
 
-        Simply write any given arguments to stdout.
+        Write any given arguments to stdout.
         """
-        str_to_write = " ".join(self.arguments)
+        str_to_write = ''
+        first_arg = True
+        for arg in self.arguments:
+            if first_arg:
+                str_to_write += str(arg)
+                first_arg = False
+            else:
+                str_to_write += f' {str(arg)}'
         str_to_write += '\n'
         sys.stdout.write(str_to_write)
         sys.stdout.flush()
