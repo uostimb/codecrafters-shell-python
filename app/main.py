@@ -29,7 +29,7 @@ class Shell:
         if hasattr(self, self.command):
             getattr(self, self.command)()
         else:
-            sys.stdout.write(f"{self.command}: command not found\n")
+            sys.stdout.write(f"{self.command}: command not found123\n")
         self.__init__()
 
     def exit(self):
