@@ -82,7 +82,7 @@ class Shell:
         the application using the argument as the exit code.
 
         If multiple arguments were passed to the exit command, write an
-        error message to stdout and then exit with exit code 1.
+        error message to stdout.
         """
         if not self.arguments:
             sys.exit()
@@ -92,7 +92,6 @@ class Shell:
 
         sys.stdout.write(f"{self.command}: invalid number of arguments\n")
         sys.stdout.flush()
-        sys.exit(1)
 
     def echo(self):
         """
@@ -107,9 +106,30 @@ class Shell:
                 str_to_write += str(arg)
                 first_arg = False
             else:
-                str_to_write += f' {str(arg)}'
-        str_to_write += '\n'
+                str_to_write += f" {str(arg)}"
+        str_to_write += "\n"
         sys.stdout.write(str_to_write)
+        sys.stdout.flush()
+
+    def type(self):
+        """
+        Handle type commands.
+
+        Write a string to stdout explaining if the given argument is
+        a valid or invalid built-in command name.
+        """
+        if len(self.arguments) != 1:
+            sys.stdout.write(
+                f"{self.command}: invalid number of arguments\n"
+            )
+            sys.stdout.flush()
+            return
+
+        arg = self.arguments[0]
+        if hasattr(self, arg):
+            sys.stdout.write(f"{arg} is a shell builtin\n")
+        else:
+            sys.stdout.write(f"{arg}: not found\n")
         sys.stdout.flush()
 
 
