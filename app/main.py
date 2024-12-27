@@ -34,15 +34,15 @@ class Shell:
 
     def exit(self):
         if not self.arguments:
-            print("calling sys.exit(0)")
+            sys.stdout.write("calling sys.exit(0)\n")
             sys.exit(0)
         if len(self.arguments) == 1:
             argument = self.arguments[0]
-            print(f'calling sys.exit({argument})')
+            sys.stdout.write(f"calling sys.exit({argument})\n")
             sys.exit(argument)
 
         sys.stdout.write(f"{self.command}: invalid number of arguments\n")
-        print("calling sys.exit(0)")
+        sys.stdout.write("calling sys.exit(0)\n")
         sys.exit(0)
 
 
