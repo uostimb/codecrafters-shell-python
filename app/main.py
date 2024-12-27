@@ -14,7 +14,7 @@ class Shell:
 
         * Resets internal memory to initial state (to prevent reuse of
         prior arguments)
-        * read users commands and arguments
+        * read commands and arguments
         * cast numeric integer-string arguments to ints
         * handle users commands
         * recursively calls self
@@ -95,6 +95,17 @@ class Shell:
         sys.stdout.write(f"{self.command}: invalid number of arguments\n")
         sys.stdout.flush()
         sys.exit(1)
+
+    def echo(self):
+        """
+        Handle echo commands.
+
+        Simply write any given arguments to stdout.
+        """
+        str_to_write = " ".join(self.arguments)
+        str_to_write += '\n'
+        sys.stdout.write(str_to_write)
+        sys.stdout.flush()
 
 
 def main():
