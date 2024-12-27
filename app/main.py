@@ -6,9 +6,9 @@ class Shell:
     arguments = []
 
     def __init__(self):
-        self.handle()
+        self.__handle()
 
-    def handle(self):
+    def __handle(self):
         """
         Main program loop.
 
@@ -22,19 +22,19 @@ class Shell:
         Will recursively loop until the program is exited (e.g. by
         calling self.exit())
         """
-        self._reset()
-        self._read_commands()
-        self._handle_commands()
-        self.handle()  # recursively loop until explicitly exited
+        self.__reset()
+        self.__read_commands()
+        self.__handle_commands()
+        self.__handle()  # recursively loop until explicitly exited
 
-    def _reset(self):
+    def __reset(self):
         """
         Reset self.command and self.arguments to initial state.
         """
         self.command = ''
         self.arguments = []
 
-    def _read_commands(self):
+    def __read_commands(self):
         """
         Read users commands and arguments.
 
@@ -55,7 +55,7 @@ class Shell:
             else:
                 self.arguments.append(arg)
 
-    def _handle_commands(self):
+    def __handle_commands(self):
         """
         Handle command in self.command
 
@@ -82,9 +82,7 @@ class Shell:
         the application using the argument as the exit code.
 
         If multiple arguments were passed to the exit command, write an
-        error message to stdout and then exit with exit code 0.
-
-        Default to exiting program with exit code 1.
+        error message to stdout and then exit with exit code 1.
         """
         if not self.arguments:
             sys.exit()
