@@ -1,3 +1,4 @@
+import os
 import sys
 
 
@@ -39,8 +40,8 @@ class Shell:
         Read users commands and arguments.
 
         * Write "$ " to std out
-        * Read users input
-        * Split the input on " " to [[command], [arguments, ...]]"
+        * Read user input
+        * Split the input on " " to ['command', 'arg 1', 'arg 2', ...]
         * Cast any integer string arguments to ints
         """
         sys.stdout.write("$ ")
@@ -99,14 +100,8 @@ class Shell:
 
         Write any given arguments to stdout.
         """
-        str_to_write = ''
-        first_arg = True
-        for arg in self.arguments:
-            if first_arg:
-                str_to_write += str(arg)
-                first_arg = False
-            else:
-                str_to_write += f" {str(arg)}"
+        str_arguments = [str(arg) for arg in self.arguments]
+        str_to_write = " ".join(str_arguments)
         str_to_write += "\n"
         sys.stdout.write(str_to_write)
         sys.stdout.flush()
@@ -128,9 +123,20 @@ class Shell:
         arg = self.arguments[0]
         if hasattr(self, arg):
             sys.stdout.write(f"{arg} is a shell builtin\n")
-        else:
-            sys.stdout.write(f"{arg}: not found\n")
-        sys.stdout.flush()
+            sys.stdout.flush()
+            return
+
+        path = os.environ.get("PATH")
+        paths = path.split(":")
+        for path in paths:
+            filepath = os.path.join(path, arg)
+            if os.path.isfile(filepath):
+                sys.stdout.write(f"{arg} is {filepath}\n")
+                sys.stdout.flush()
+                return
+
+        # if not found by any of the above
+        sys.stdout.write(f"{arg}: not found\n")
 
 
 def main():
