@@ -10,14 +10,14 @@ class Shell:
 
     def handle(self):
         self.reset()
-        self.read_command()
+        self.read_commands()
         self.handle_commands()
 
     def reset(self):
         self.command = ''
         self.arguments = []
 
-    def read_command(self):
+    def read_commands(self):
         sys.stdout.write("$ ")
         commands = input()
         inputs = commands.split(" ")
@@ -29,8 +29,8 @@ class Shell:
         if hasattr(self, self.command):
             getattr(self, self.command)()
         else:
-            sys.stdout.write(f"{self.command}: command not found123\n")
-        self.__init__()
+            sys.stdout.write(f"{self.command}: command not found\n")
+        self.handle()
 
     def exit(self):
         if not self.arguments:
