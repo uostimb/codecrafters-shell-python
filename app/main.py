@@ -104,6 +104,22 @@ class Shell:
         sys.stdout.write(msg)
         sys.stdout.flush()
 
+    def __one_arg_exactly(self):
+        """
+        Return True if there is exactly one argument given, else write
+        an error message to stdout stating there were an invalid number
+        of arguments then return False.
+
+        :return: bool
+        """#
+        if len(self.arguments) != 1:
+            self.__write_stdout(
+                f"{self.command}: invalid number of arguments\n"
+            )
+            return False
+
+        return True
+
     def exit(self):
         """
         Handle exit commands.
@@ -118,12 +134,9 @@ class Shell:
         error message to stdout.
         """
         if not self.arguments:
-            sys.exit()
+            sys.exit()  # default exit code 0
 
-        if len(self.arguments) > 1:
-            self.__write_stdout(
-                f"{self.command}: invalid number of arguments\n"
-            )
+        if not self.__one_arg_exactly():
             return
 
         argument = self.arguments[0]
@@ -151,10 +164,7 @@ class Shell:
         variable, or write an error message explaining that the command
         could not be found.
         """
-        if len(self.arguments) != 1:
-            self.__write_stdout(
-                f"{self.command}: invalid number of arguments\n"
-            )
+        if not self.__one_arg_exactly():
             return
 
         arg = self.arguments[0]
@@ -199,6 +209,22 @@ class Shell:
         variable so must be handled directly.
         """
         self.__write_stdout(f'{os.getcwd()}\n')
+
+    def cd(self):
+        """
+        Handle requests to change the current working directory.
+        """
+        if not self.__one_arg_exactly():
+            return
+
+        arg = self.arguments[0]
+
+        try:
+            os.chdir(arg)
+        except FileNotFoundError:
+            self.__write_stdout(
+                f"cd: {arg}: No such file or directory\n"
+            )
 
 
 def main():
