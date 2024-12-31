@@ -4,8 +4,9 @@ import sys
 
 
 class Shell:
-    command = ''
+    command = ""
     arguments = []
+    debug = False
 
     def __init__(self):
         self.__handle()
@@ -32,12 +33,15 @@ class Shell:
         * Read user input
         * Split the input on " " to ['command', 'arg1', 'arg2', etc.]
         """
-        self.__write_stdout("$ ")
+        self.__write_stdout("$ ", end_with_newline=False)
         commands = input()
         inputs = commands.split(" ")
         self.command = inputs[0]
         arguments = inputs[1:]
         self.arguments = self.__tokenise_args(arguments)
+        if self.debug is True:
+            self.__write_stdout(f"raw arguments = {arguments}")
+            self.__write_stdout(f"tokenised arguments = {self.arguments}")
 
     @staticmethod
     def __tokenise_args(arguments: list) -> list:
@@ -58,7 +62,8 @@ class Shell:
                 quoted_arg += arg[1:]  # exclude starting single quote
                 continue
             if arg == '':
-                quoted_arg += ' '
+                if quoted_arg != '':
+                    quoted_arg += ' '
                 continue
             if quoted_arg and not arg.endswith("'"):
                 quoted_arg += f' {arg}'
@@ -68,6 +73,8 @@ class Shell:
                 tokenised_args.append(quoted_arg)
                 quoted_arg = ''
                 continue
+
+            # else
             tokenised_args.append(arg)
 
         return tokenised_args
@@ -87,6 +94,15 @@ class Shell:
         If the command does not match a valid method name or a valid
         file path then write an error message to stdout.
         """
+        if self.command == "debug_mode":
+            if self.arguments[0].lower() in ["on", "true", "1"]:
+                self.debug = True
+                self.__write_stdout("Debug mode on")
+            if self.arguments[0].lower() in ["off", "false", "0"]:
+                self.debug = False
+                self.__write_stdout("Debug mode off")
+            return
+
         if hasattr(self, self.command):
             getattr(self, self.command)()
             return
@@ -96,7 +112,7 @@ class Shell:
         except ValueError:
             # could not find a valid filepath for the command in PATHS
             # environment variable
-            self.__write_stdout(f"{self.command}: command not found\n")
+            self.__write_stdout(f"{self.command}: command not found")
 
     @staticmethod
     def __get_path_for_file(filename: str):
@@ -122,10 +138,12 @@ class Shell:
         )
 
     @staticmethod
-    def __write_stdout(msg: str):
+    def __write_stdout(msg: str, end_with_newline=True):
         """
         Write the given message to stdout.
         """
+        if end_with_newline:
+            msg += '\n'
         sys.stdout.write(msg)
         sys.stdout.flush()
 
@@ -139,7 +157,7 @@ class Shell:
         """
         if len(self.arguments) != 1:
             self.__write_stdout(
-                f"{self.command}: invalid number of arguments\n"
+                f"{self.command}: invalid number of arguments"
             )
             return False
 
@@ -175,9 +193,7 @@ class Shell:
 
         Write any given arguments to stdout.
         """
-        str_to_write = " ".join(self.arguments)
-        str_to_write += "\n"
-        self.__write_stdout(str_to_write)
+        self.__write_stdout(" ".join(self.arguments))
 
     def type(self):
         """
@@ -194,14 +210,14 @@ class Shell:
 
         arg = self.arguments[0]
         if hasattr(self, arg):
-            self.__write_stdout(f"{arg} is a shell builtin\n")
+            self.__write_stdout(f"{arg} is a shell builtin")
             return
 
         try:
             filepath = self.__get_path_for_file(arg)
-            self.__write_stdout(f"{arg} is {filepath}\n")
+            self.__write_stdout(f"{arg} is {filepath}")
         except ValueError:
-            self.__write_stdout(f"{arg}: not found\n")
+            self.__write_stdout(f"{arg}: not found")
 
     def run_external_program(self):
         """
@@ -233,7 +249,7 @@ class Shell:
         CodeCrafters.io) `pwd` isn't locatable in any paths in the PATH
         environment variable so we'll handle it directly.
         """
-        self.__write_stdout(f'{os.getcwd()}\n')
+        self.__write_stdout(f'{os.getcwd()}')
 
     def cd(self):
         """
@@ -250,9 +266,7 @@ class Shell:
         try:
             os.chdir(arg)
         except FileNotFoundError:
-            self.__write_stdout(
-                f"cd: {arg}: No such file or directory\n"
-            )
+            self.__write_stdout(f"cd: {arg}: No such file or directory")
 
 
 def main():
