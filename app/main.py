@@ -14,26 +14,15 @@ class Shell:
         """
         Main program loop.
 
-        * Resets internal memory to initial state (to prevent reuse of
-        prior arguments)
+        * write "$ " to stdout
         * read commands and arguments
-        * cast numeric integer-string arguments to ints
-        * handle users commands
-
-        Will recursively loop until the program is exited (e.g. by
-        calling self.exit())
+        * handle commands
+        * recursively loop until the program is exited (e.g. by calling
+        self.exit())
         """
-        self.__reset()
         self.__read_commands()
         self.__handle_commands()
         self.__handle()  # recursively loop until explicitly exited
-
-    def __reset(self):
-        """
-        Reset self.command and self.arguments to initial state.
-        """
-        self.command = ''
-        self.arguments = []
 
     def __read_commands(self):
         """
@@ -41,23 +30,57 @@ class Shell:
 
         * Write "$ " to std out
         * Read user input
-        * Split the input on " " to ['command', 'arg 1', 'arg 2', ...]
+        * Split the input on " " to ['command', 'arg1', 'arg2', etc.]
         """
         self.__write_stdout("$ ")
         commands = input()
         inputs = commands.split(" ")
         self.command = inputs[0]
-        self.arguments = inputs[1:]
+        arguments = inputs[1:]
+        self.arguments = self.__tokenise_args(arguments)
+
+    @staticmethod
+    def __tokenise_args(arguments: list) -> list:
+        """
+        Tokenise the input argument list.
+
+        Combine multiple string arguments (list items) that are
+        surrounded by a pair of single quotes into a single string.
+        """
+        tokenised_args = []
+        quoted_arg = ''
+        for i in range(len(arguments)):
+            arg = arguments[i]
+            if arg.startswith("'") and arg.endswith("'"):
+                tokenised_args.append(arg[1:-1])
+                continue
+            if arg.startswith("'") and not arg.endswith("'"):
+                quoted_arg += arg[1:]  # exclude starting single quote
+                continue
+            if arg == '':
+                quoted_arg += ' '
+                continue
+            if quoted_arg and not arg.endswith("'"):
+                quoted_arg += f' {arg}'
+                continue
+            if arg.endswith("'") and not arg.startswith("'"):
+                quoted_arg += f' {arg[:-1]}'  # exclude ending single quote
+                tokenised_args.append(quoted_arg)
+                quoted_arg = ''
+                continue
+            tokenised_args.append(arg)
+
+        return tokenised_args
 
     def __handle_commands(self):
         """
-        Handle command in self.command
+        Handle the given command.
 
-        If the given command name matches an attribute (method name) on
-        self then call that method.
+        If the given command name matches a method name then call that
+        method.
 
-        If the given command name doesn't match any attributes (method
-        names) on self then try to interpret the command as a request to
+        If the given command name doesn't match any method names
+        then try to interpret the command as a request to
         run an external program (from paths on the PATHS environment
         variable).
 
