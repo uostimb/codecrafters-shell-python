@@ -277,9 +277,13 @@ class Shell:
         completed_process = subprocess.run(
             to_run,
             stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
+            stderr=subprocess.PIPE,
             text=True,
         )
+        if completed_process.stderr:
+            self._write_stdout(completed_process.stderr)
+            return
+
         return completed_process.stdout
 
 
