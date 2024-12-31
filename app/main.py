@@ -42,19 +42,12 @@ class Shell:
         * Write "$ " to std out
         * Read user input
         * Split the input on " " to ['command', 'arg 1', 'arg 2', ...]
-        * Cast any integer string arguments to ints
         """
         sys.stdout.write("$ ")
         commands = input()
         inputs = commands.split(" ")
         self.command = inputs[0]
-        arguments = inputs[1:]
-        # Cast str integer arguments to ints
-        for arg in arguments:
-            if isinstance(arg, str) and arg.isdigit():
-                self.arguments.append(int(arg))
-            else:
-                self.arguments.append(arg)
+        self.arguments = inputs[1:]
 
     def __handle_commands(self):
         """
@@ -77,22 +70,26 @@ class Shell:
         Handle exit commands.
 
         If no arguments were passed to the exit command then exit the
-        application with exit code 0.
+        application with exit code 0 (the default for sys.exit()).
 
-        If a single argument was passed to the exit command then exit
-        the application using the argument as the exit code.
+        If a single integer argument was passed to the exit command then
+        exit the application using the argument as the exit code.
 
         If multiple arguments were passed to the exit command, write an
         error message to stdout.
         """
         if not self.arguments:
             sys.exit()
-        if len(self.arguments) == 1:
-            argument = self.arguments[0]
-            sys.exit(argument)
 
-        sys.stdout.write(f"{self.command}: invalid number of arguments\n")
-        sys.stdout.flush()
+        if len(self.arguments) > 1:
+            sys.stdout.write(f"{self.command}: invalid number of arguments\n")
+            sys.stdout.flush()
+            return
+
+        argument = self.arguments[0]
+        if isinstance(argument, str) and argument.isdigit():
+            argument = int(argument)
+        sys.exit(argument)
 
     def echo(self):
         """
@@ -100,8 +97,7 @@ class Shell:
 
         Write any given arguments to stdout.
         """
-        str_arguments = [str(arg) for arg in self.arguments]
-        str_to_write = " ".join(str_arguments)
+        str_to_write = " ".join(self.arguments)
         str_to_write += "\n"
         sys.stdout.write(str_to_write)
         sys.stdout.flush()
