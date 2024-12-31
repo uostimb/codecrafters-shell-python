@@ -72,6 +72,8 @@ class Shell:
         try:
             self.run_external_program()
         except ValueError:
+            # could not find a valid filepath for the command in PATHS
+            # environment variable
             sys.stdout.write(f"{self.command}: command not found\n")
             sys.stdout.flush()
 
@@ -164,12 +166,40 @@ class Shell:
             sys.stdout.flush()
 
     def run_external_program(self):
+        """
+        Handle running external programs as a subprocess.
+
+        Attempt to locate the given command as a program in paths from
+        the PATHS environment variable and run it with the given
+        arguments, then print any return from both stdout and stderr to
+        stdout.
+        """
         # will raise ValueError if no valid filepath exists
         filepath = self.__get_path_for_file(self.command)
 
-        to_run = [self.command] + self.arguments
+        to_run = [filepath] + self.arguments
         completed_process = subprocess.run(
             to_run,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        sys.stdout.write(completed_process.stdout)
+        sys.stdout.flush()
+
+    @staticmethod
+    def pwd():
+        """
+        Print the full path to the current working directory.
+
+        This /should/ already be handled by self.run_external_program,
+        but on some systems (i.e. the CI server for CodeCrafters.io)
+        `pwd` isn't locatable in any paths in the PATH environment
+        variable and must be assumed to be handled directly by the
+        underlying shell/OS.
+        """
+        completed_process = subprocess.run(
+            'pwd',
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
