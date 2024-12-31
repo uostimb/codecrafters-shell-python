@@ -19,7 +19,6 @@ class Shell:
         * read commands and arguments
         * cast numeric integer-string arguments to ints
         * handle users commands
-        * recursively calls self
 
         Will recursively loop until the program is exited (e.g. by
         calling self.exit())
@@ -101,6 +100,9 @@ class Shell:
 
     @staticmethod
     def __write_stdout(msg: str):
+        """
+        Write the given message to stdout.
+        """
         sys.stdout.write(msg)
         sys.stdout.flush()
 
@@ -111,7 +113,7 @@ class Shell:
         of arguments then return False.
 
         :return: bool
-        """#
+        """
         if len(self.arguments) != 1:
             self.__write_stdout(
                 f"{self.command}: invalid number of arguments\n"
@@ -204,9 +206,9 @@ class Shell:
         Print the full path to the current working directory.
 
         This /should/ already be handled by self.run_external_program,
-        but on some systems/OSs (i.e. the CI server for CodeCrafters.io)
-        `pwd` isn't locatable in any paths in the PATH environment
-        variable so must be handled directly.
+        for most systems/OSs, but on some (i.e. the CI server for
+        CodeCrafters.io) `pwd` isn't locatable in any paths in the PATH
+        environment variable so we'll handle it directly.
         """
         self.__write_stdout(f'{os.getcwd()}\n')
 
