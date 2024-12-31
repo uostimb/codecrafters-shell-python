@@ -1,4 +1,5 @@
 import os
+import shlex
 import subprocess
 import sys
 
@@ -35,49 +36,11 @@ class Shell:
         """
         self.__write_stdout("$ ", end_with_newline=False)
         commands = input()
-        inputs = commands.split(" ")
+        inputs = shlex.split(commands, posix=True)
         self.command = inputs[0]
-        arguments = inputs[1:]
-        self.arguments = self.__tokenise_args(arguments)
+        self.arguments = inputs[1:]
         if self.debug is True:
-            self.__write_stdout(f"raw arguments = {arguments}")
             self.__write_stdout(f"tokenised arguments = {self.arguments}")
-
-    @staticmethod
-    def __tokenise_args(arguments: list) -> list:
-        """
-        Tokenise the input argument list.
-
-        Combine multiple string arguments (list items) that are
-        surrounded by a pair of single quotes into a single string.
-        """
-        tokenised_args = []
-        quoted_arg = ''
-        for i in range(len(arguments)):
-            arg = arguments[i]
-            if arg.startswith("'") and arg.endswith("'"):
-                tokenised_args.append(arg[1:-1])
-                continue
-            if arg.startswith("'") and not arg.endswith("'"):
-                quoted_arg += arg[1:]  # exclude starting single quote
-                continue
-            if arg == '':
-                if quoted_arg != '':
-                    quoted_arg += ' '
-                continue
-            if quoted_arg and not arg.endswith("'"):
-                quoted_arg += f' {arg}'
-                continue
-            if arg.endswith("'") and not arg.startswith("'"):
-                quoted_arg += f' {arg[:-1]}'  # exclude ending single quote
-                tokenised_args.append(quoted_arg)
-                quoted_arg = ''
-                continue
-
-            # else
-            tokenised_args.append(arg)
-
-        return tokenised_args
 
     def __handle_commands(self):
         """
