@@ -8,13 +8,15 @@ class Shell:
     command = ""
     arguments = []
     builtins = [
-        'exit',
-        'echo',
-        'type',
-        'pwd',
-        'cd',
+        "exit",
+        "echo",
+        "type",
+        "pwd",
+        "cd",
     ]
     debug = False
+    output = ""
+    write_to_filename = ""
 
     def __init__(self):
         self._handle()
@@ -31,6 +33,7 @@ class Shell:
         """
         self._read_commands()
         self._handle_commands()
+        self._write_output()
         self._handle()  # recursively loop until explicitly exited
 
     def _read_commands(self):
@@ -41,13 +44,22 @@ class Shell:
         * Read user input
         * Split the input on " " to ['command', 'arg1', 'arg2', etc.]
         """
-        self._write_stdout("$ ", end_with_newline=False)
+        self._write_stdout("$ ")
         commands = input()
         inputs = shlex.split(commands, posix=True)  # This feels like a cop-out
         self.command = inputs[0]
         self.arguments = inputs[1:]
         if self.debug is True:
-            self._write_stdout(f"tokenised arguments = {self.arguments}")
+            self._write_stdout(f"tokenised arguments = {self.arguments}\n")
+
+        # setup outputting results to a file if required
+        self.write_to_filename = ''
+        for i in range(len(self.arguments)):
+            arg = self.arguments[i]
+            if arg in ['>', '1>']:
+                self.write_to_filename = self.arguments[i+1]
+                self.arguments = self.arguments[:i]
+                break
 
     def _handle_commands(self):
         """
@@ -64,26 +76,83 @@ class Shell:
         If the command does not match a valid method name or a valid
         file path then write an error message to stdout.
         """
+        self.output = ""
         if self.command == "debug_mode":
-            if self.arguments[0].lower() in ["on", "true", "1"]:
-                self.debug = True
-                self._write_stdout("Debug mode on")
-            if self.arguments[0].lower() in ["off", "false", "0"]:
-                self.debug = False
-                self._write_stdout("Debug mode off")
+            if self.arguments:
+                if self.arguments[0].lower() in ["on", "true", "1"]:
+                    self.debug = True
+                if self.arguments[0].lower() in ["off", "false", "0"]:
+                    self.debug = False
+            self._write_stdout(f"Debug mode: {self.debug}\n")
             return
 
         if self.command in self.builtins:
-            getattr(self, self.command)()
+            self.output = getattr(self, self.command)()
             return
 
         try:
-            self.run_external_program()
+            self.output = self.run_external_program()
         except ValueError:
             # could not find a builtin with that name or a valid
             # filepath in the PATHS environment variable for a program
             # with that name
-            self._write_stdout(f"{self.command}: command not found")
+            self._write_stdout(f"{self.command}: command not found\n")
+
+    def _write_output(self):
+        """
+        Write the results of the given command.
+
+        Write the output (from self.output) to the required file,
+        otherwise write it to stdout.
+        """
+        if not self.output:
+            return
+
+        if self.write_to_filename:
+            with open(self.write_to_filename, 'w') as file:
+                file.write(self.output)
+            if self.debug is True:
+                escaped_output = (
+                    self.output
+                    .encode("unicode_escape")
+                    .decode("utf-8")
+                )
+                escaped_filename = (
+                    self.write_to_filename
+                    .encode("unicode_escape")
+                    .decode("utf-8")
+                )
+                self._write_stdout(
+                    f'Wrote "{escaped_output}" to file '
+                    f'"{escaped_filename}"\n'
+                )
+            return
+
+        self._write_stdout(self.output)
+
+    @staticmethod
+    def _write_stdout(msg: str):
+        """
+        Write the given message to stdout.
+        """
+        sys.stdout.write(msg)
+        sys.stdout.flush()
+
+    def _one_arg_exactly(self):
+        """
+        Return True if there is exactly one argument given, else write
+        an error message to stdout stating there were an invalid number
+        of arguments then return False.
+
+        :return: bool
+        """
+        if len(self.arguments) != 1:
+            self._write_stdout(
+                f"{self.command}: invalid number of arguments\n"
+            )
+            return False
+
+        return True
 
     @staticmethod
     def _get_path_for_file(filename: str):
@@ -107,32 +176,6 @@ class Shell:
             f"{filename} not found in any path from PATHS environment"
             " variable."
         )
-
-    @staticmethod
-    def _write_stdout(msg: str, end_with_newline=True):
-        """
-        Write the given message to stdout.
-        """
-        if end_with_newline:
-            msg += '\n'
-        sys.stdout.write(msg)
-        sys.stdout.flush()
-
-    def _one_arg_exactly(self):
-        """
-        Return True if there is exactly one argument given, else write
-        an error message to stdout stating there were an invalid number
-        of arguments then return False.
-
-        :return: bool
-        """
-        if len(self.arguments) != 1:
-            self._write_stdout(
-                f"{self.command}: invalid number of arguments"
-            )
-            return False
-
-        return True
 
     def exit(self):
         """
@@ -164,7 +207,7 @@ class Shell:
 
         Write any given arguments to stdout.
         """
-        self._write_stdout(" ".join(self.arguments))
+        return f"{' '.join(self.arguments)}\n"
 
     def type(self):
         """
@@ -181,14 +224,42 @@ class Shell:
 
         arg = self.arguments[0]
         if arg in self.builtins:
-            self._write_stdout(f"{arg} is a shell builtin")
-            return
+            return f"{arg} is a shell builtin\n"
 
         try:
             filepath = self._get_path_for_file(arg)
-            self._write_stdout(f"{arg} is {filepath}")
+            return f"{arg} is {filepath}\n"
         except ValueError:
-            self._write_stdout(f"{arg}: not found")
+            return f"{arg}: not found\n"
+
+    @staticmethod
+    def pwd():
+        """
+        Print the full path to the current working directory.
+
+        This /should/ already be handled by self.run_external_program,
+        for most systems/OSs, but on some (i.e. the CI server for
+        CodeCrafters.io) `pwd` isn't locatable in any paths in the PATH
+        environment variable so we'll handle it directly.
+        """
+        return f'{os.getcwd()}\n'
+
+    def cd(self):
+        """
+        Handle requests to change the current working directory.
+        """
+        if not self._one_arg_exactly():
+            return
+
+        arg = self.arguments[0]
+        if "~" in arg:
+            home_dir_path = os.environ.get("HOME")
+            arg = arg.replace("~", home_dir_path)
+
+        try:
+            os.chdir(arg)
+        except FileNotFoundError:
+            return f"cd: {arg}: No such file or directory\n"
 
     def run_external_program(self):
         """
@@ -209,35 +280,7 @@ class Shell:
             stderr=subprocess.STDOUT,
             text=True,
         )
-        self._write_stdout(completed_process.stdout, end_with_newline=False)
-
-    def pwd(self):
-        """
-        Print the full path to the current working directory.
-
-        This /should/ already be handled by self.run_external_program,
-        for most systems/OSs, but on some (i.e. the CI server for
-        CodeCrafters.io) `pwd` isn't locatable in any paths in the PATH
-        environment variable so we'll handle it directly.
-        """
-        self._write_stdout(f'{os.getcwd()}')
-
-    def cd(self):
-        """
-        Handle requests to change the current working directory.
-        """
-        if not self._one_arg_exactly():
-            return
-
-        arg = self.arguments[0]
-        if "~" in arg:
-            home_dir_path = os.environ.get("HOME")
-            arg = arg.replace("~", home_dir_path)
-
-        try:
-            os.chdir(arg)
-        except FileNotFoundError:
-            self._write_stdout(f"cd: {arg}: No such file or directory")
+        return completed_process.stdout
 
 
 def main():
