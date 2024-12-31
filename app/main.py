@@ -220,6 +220,9 @@ class Shell:
             return
 
         arg = self.arguments[0]
+        if "~" in arg:
+            home_dir_path = os.environ.get("HOME")
+            arg = arg.replace("~", home_dir_path)
 
         try:
             os.chdir(arg)
