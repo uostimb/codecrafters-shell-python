@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 
 
@@ -57,13 +58,45 @@ class Shell:
         self then call that method.
 
         If the given command name doesn't match any attributes (method
-        names) on self then write an error message to stdout.
+        names) on self then try to interpret the command as a request to
+        run an external program (from paths on the PATHS environment
+        variable).
+
+        If the command does not match a valid method name or a valid
+        file path then write an error message to stdout.
         """
         if hasattr(self, self.command):
             getattr(self, self.command)()
-        else:
+            return
+
+        try:
+            self.run_external_program()
+        except ValueError:
             sys.stdout.write(f"{self.command}: command not found\n")
             sys.stdout.flush()
+
+    @staticmethod
+    def __get_path_for_file(filename: str):
+        """
+        Check if filename is in any path from PATHs environment var.
+
+        Return the full filepath of the file from the first path that
+         contains it, or raise ValueError the filename is not contained
+         in any path.
+
+        :param filename: string
+        :return: str
+        """
+        paths = os.environ.get("PATH").split(":")
+        for path in paths:
+            filepath = os.path.join(path, filename)
+            if os.path.isfile(filepath):
+                return filepath
+
+        raise ValueError(
+            f"{filename} not found in any path from PATHS environment"
+            " variable."
+        )
 
     def exit(self):
         """
@@ -122,17 +155,27 @@ class Shell:
             sys.stdout.flush()
             return
 
-        path = os.environ.get("PATH")
-        paths = path.split(":")
-        for path in paths:
-            filepath = os.path.join(path, arg)
-            if os.path.isfile(filepath):
-                sys.stdout.write(f"{arg} is {filepath}\n")
-                sys.stdout.flush()
-                return
+        try:
+            filepath = self.__get_path_for_file(arg)
+            sys.stdout.write(f"{arg} is {filepath}\n")
+        except ValueError:
+            sys.stdout.write(f"{arg}: not found\n")
+        finally:
+            sys.stdout.flush()
 
-        # if not found by any of the above
-        sys.stdout.write(f"{arg}: not found\n")
+    def run_external_program(self):
+        # will raise ValueError if no valid filepath exists
+        filepath = self.__get_path_for_file(self.command)
+
+        to_run = [self.command] + self.arguments
+        completed_process = subprocess.run(
+            to_run,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        sys.stdout.write(completed_process.stdout)
+        sys.stdout.flush()
 
 
 def main():
