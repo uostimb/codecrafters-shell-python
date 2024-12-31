@@ -44,7 +44,7 @@ class Shell:
         * Read user input
         * Split the input on " " to ['command', 'arg 1', 'arg 2', ...]
         """
-        sys.stdout.write("$ ")
+        self.__write_stdout("$ ")
         commands = input()
         inputs = commands.split(" ")
         self.command = inputs[0]
@@ -74,8 +74,7 @@ class Shell:
         except ValueError:
             # could not find a valid filepath for the command in PATHS
             # environment variable
-            sys.stdout.write(f"{self.command}: command not found\n")
-            sys.stdout.flush()
+            self.__write_stdout(f"{self.command}: command not found\n")
 
     @staticmethod
     def __get_path_for_file(filename: str):
@@ -100,6 +99,11 @@ class Shell:
             " variable."
         )
 
+    @staticmethod
+    def __write_stdout(msg: str):
+        sys.stdout.write(msg)
+        sys.stdout.flush()
+
     def exit(self):
         """
         Handle exit commands.
@@ -117,8 +121,9 @@ class Shell:
             sys.exit()
 
         if len(self.arguments) > 1:
-            sys.stdout.write(f"{self.command}: invalid number of arguments\n")
-            sys.stdout.flush()
+            self.__write_stdout(
+                f"{self.command}: invalid number of arguments\n"
+            )
             return
 
         argument = self.arguments[0]
@@ -134,36 +139,34 @@ class Shell:
         """
         str_to_write = " ".join(self.arguments)
         str_to_write += "\n"
-        sys.stdout.write(str_to_write)
-        sys.stdout.flush()
+        self.__write_stdout(str_to_write)
 
     def type(self):
         """
         Handle type commands.
 
         Write a string to stdout explaining if the given argument is
-        a valid or invalid built-in command name.
+        a valid built-in command name, write the full path to the file
+        if the file exists in a path from the PATHS environment
+        variable, or write an error message explaining that the command
+        could not be found.
         """
         if len(self.arguments) != 1:
-            sys.stdout.write(
+            self.__write_stdout(
                 f"{self.command}: invalid number of arguments\n"
             )
-            sys.stdout.flush()
             return
 
         arg = self.arguments[0]
         if hasattr(self, arg):
-            sys.stdout.write(f"{arg} is a shell builtin\n")
-            sys.stdout.flush()
+            self.__write_stdout(f"{arg} is a shell builtin\n")
             return
 
         try:
             filepath = self.__get_path_for_file(arg)
-            sys.stdout.write(f"{arg} is {filepath}\n")
+            self.__write_stdout(f"{arg} is {filepath}\n")
         except ValueError:
-            sys.stdout.write(f"{arg}: not found\n")
-        finally:
-            sys.stdout.flush()
+            self.__write_stdout(f"{arg}: not found\n")
 
     def run_external_program(self):
         """
@@ -184,28 +187,18 @@ class Shell:
             stderr=subprocess.STDOUT,
             text=True,
         )
-        sys.stdout.write(completed_process.stdout)
-        sys.stdout.flush()
+        self.__write_stdout(completed_process.stdout)
 
-    @staticmethod
-    def pwd():
+    def pwd(self):
         """
         Print the full path to the current working directory.
 
         This /should/ already be handled by self.run_external_program,
-        but on some systems (i.e. the CI server for CodeCrafters.io)
+        but on some systems/OSs (i.e. the CI server for CodeCrafters.io)
         `pwd` isn't locatable in any paths in the PATH environment
-        variable and must be assumed to be handled directly by the
-        underlying shell/OS.
+        variable so must be handled directly.
         """
-        completed_process = subprocess.run(
-            'pwd',
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-        sys.stdout.write(completed_process.stdout)
-        sys.stdout.flush()
+        self.__write_stdout(f'{os.getcwd()}\n')
 
 
 def main():
