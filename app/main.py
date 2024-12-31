@@ -18,6 +18,8 @@ class Shell:
     stderr_output = ""
     filename_to_write_stdout = ""
     filename_to_write_stderr = ""
+    stdout_file_mode = "w"
+    stderr_file_mode = "w"
 
     def __init__(self):
         self._handle()
@@ -68,19 +70,25 @@ class Shell:
         arg_indexes_to_pop = []
         for i in range(len(self.arguments)):
             arg = self.arguments[i]
-            for redirect_arg, filename_var in (
-                (">",  "filename_to_write_stdout"),
-                ("1>", "filename_to_write_stdout"),
-                ("2>", "filename_to_write_stderr"),
+            for redirect_arg, std_type, file_mode in (
+                # ToDo: regex
+                (">",  "stdout", "w"),
+                ("1>", "stdout", "w"),
+                ("2>", "stderr", "w"),
+                (">>", "stdout", "a"),
+                ("1>>", "stdout", "a"),
+                ("2>>", "stderr", "a"),
             ):
                 if arg == redirect_arg:
                     filename = self.arguments[i+1]
-                    setattr(self, filename_var, filename)
-                    # clear/create file if required
-                    open(filename, 'w').close()
                     arg_indexes_to_pop.append(i)
                     arg_indexes_to_pop.append(i+1)
-
+                    filename_var = f'filename_to_write_{std_type}'
+                    setattr(self, filename_var, filename)
+                    # clear/create file if required
+                    open(filename, file_mode).close()
+                    file_mode_var = f'{std_type}_file_mode'
+                    setattr(self, file_mode_var, file_mode)
 
         arg_indexes_to_pop.sort(reverse=True)
         for i in arg_indexes_to_pop:
@@ -138,7 +146,9 @@ class Shell:
                 continue
 
             # Write to file
-            with open(filename, "w") as file:
+            stdout_type = std_type.name.strip('<>')
+            filemode = getattr(self, f'{stdout_type}_file_mode')
+            with open(filename, filemode) as file:
                 file.write(output)
 
     @staticmethod
