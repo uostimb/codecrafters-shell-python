@@ -238,7 +238,7 @@ class Shell:
             stderr=subprocess.STDOUT,
             text=True,
         )
-        self.__write_stdout(completed_process.stdout)
+        self.__write_stdout(completed_process.stdout, end_with_newline=False)
 
     def pwd(self):
         """
