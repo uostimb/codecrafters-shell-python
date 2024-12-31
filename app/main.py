@@ -14,9 +14,10 @@ class Shell:
         "pwd",
         "cd",
     ]
-    debug = False
-    output = ""
-    write_to_filename = ""
+    stdout_output = ""
+    stderr_output = ""
+    filename_to_write_stdout = ""
+    filename_to_write_stderr = ""
 
     def __init__(self):
         self._handle()
@@ -32,8 +33,9 @@ class Shell:
         self.exit())
         """
         self._read_commands()
-        self._handle_commands()
-        self._write_output()
+        if not self.command == "":
+            self._handle_commands()
+            self._write_output()
         self._handle()  # recursively loop until explicitly exited
 
     def _read_commands(self):
@@ -43,23 +45,46 @@ class Shell:
         * Write "$ " to std out
         * Read user input
         * Split the input on " " to ['command', 'arg1', 'arg2', etc.]
+          gracefully handling single and double quotes in strings.
+        * Handle redirecting stdout and stderr to files if required.
         """
-        self._write_stdout("$ ")
+        self._write_msg("$ ")
         commands = input()
+        if not commands:
+            return
         inputs = shlex.split(commands, posix=True)  # This feels like a cop-out
         self.command = inputs[0]
         self.arguments = inputs[1:]
-        if self.debug is True:
-            self._write_stdout(f"tokenised arguments = {self.arguments}\n")
+        self._set_up_file_redirection()
 
-        # setup outputting results to a file if required
-        self.write_to_filename = ''
+    def _set_up_file_redirection(self):
+        """
+        Setup redirecting stdout and stderr to a file.
+
+        Remove the redirection-related items from self.arguments
+        """
+        self.filename_to_write_stdout = ""
+        self.filename_to_write_stderr = ""
+        arg_indexes_to_pop = []
         for i in range(len(self.arguments)):
             arg = self.arguments[i]
-            if arg in ['>', '1>']:
-                self.write_to_filename = self.arguments[i+1]
-                self.arguments = self.arguments[:i]
-                break
+            for redirect_arg, filename_var in (
+                (">",  "filename_to_write_stdout"),
+                ("1>", "filename_to_write_stdout"),
+                ("2>", "filename_to_write_stderr"),
+            ):
+                if arg == redirect_arg:
+                    filename = self.arguments[i+1]
+                    setattr(self, filename_var, filename)
+                    # clear/create file if required
+                    open(filename, 'w').close()
+                    arg_indexes_to_pop.append(i)
+                    arg_indexes_to_pop.append(i+1)
+
+
+        arg_indexes_to_pop.sort(reverse=True)
+        for i in arg_indexes_to_pop:
+            self.arguments.pop(i)
 
     def _handle_commands(self):
         """
@@ -76,67 +101,56 @@ class Shell:
         If the command does not match a valid method name or a valid
         file path then write an error message to stdout.
         """
-        self.output = ""
-        if self.command == "debug_mode":
-            if self.arguments:
-                if self.arguments[0].lower() in ["on", "true", "1"]:
-                    self.debug = True
-                if self.arguments[0].lower() in ["off", "false", "0"]:
-                    self.debug = False
-            self._write_stdout(f"Debug mode: {self.debug}\n")
-            return
+        self.stdout_output = ""
+        self.stderr_output = ""
 
         if self.command in self.builtins:
-            self.output = getattr(self, self.command)()
+            getattr(self, self.command)()
             return
 
         try:
-            self.output = self.run_external_program()
+            self.run_external_program()
         except ValueError:
             # could not find a builtin with that name or a valid
             # filepath in the PATHS environment variable for a program
             # with that name
-            self._write_stdout(f"{self.command}: command not found\n")
+            self.stderr_output = f"{self.command}: command not found\n"
 
     def _write_output(self):
         """
-        Write the results of the given command.
+        Write the results of the given command if required.
 
-        Write the output (from self.output) to the required file,
-        otherwise write it to stdout.
+        Write the outputs from self.stdout_output and self.stderr_output
+        to the required file if a filename was specified, otherwise
+        write them to stdout and/or stderr.
         """
-        if not self.output:
-            return
+        for filename, output, std_type in (
+            (self.filename_to_write_stdout, self.stdout_output, sys.stdout),
+            (self.filename_to_write_stderr, self.stderr_output, sys.stderr),
+        ):
+            if not output:
+                # Nothing to write
+                continue
 
-        if self.write_to_filename:
-            with open(self.write_to_filename, 'w') as file:
-                file.write(self.output)
-            if self.debug is True:
-                escaped_output = (
-                    self.output
-                    .encode("unicode_escape")
-                    .decode("utf-8")
-                )
-                escaped_filename = (
-                    self.write_to_filename
-                    .encode("unicode_escape")
-                    .decode("utf-8")
-                )
-                self._write_stdout(
-                    f'Wrote "{escaped_output}" to file '
-                    f'"{escaped_filename}"\n'
-                )
-            return
+            if not filename:
+                # Write to shell
+                self._write_msg(output, std_type)
+                continue
 
-        self._write_stdout(self.output)
+            # Write to file
+            with open(filename, "w") as file:
+                file.write(output)
 
     @staticmethod
-    def _write_stdout(msg: str):
+    def _write_msg(msg: str, std_type=sys.stdout):
         """
-        Write the given message to stdout.
+        Write the given message to the given std type.
+
+        :param msg: message to write
+        :param std_type: one of sys.stdout or sys.stderr
         """
-        sys.stdout.write(msg)
-        sys.stdout.flush()
+        std_type.write(msg)
+        std_type.flush()
 
     def _one_arg_exactly(self):
         """
@@ -147,8 +161,9 @@ class Shell:
         :return: bool
         """
         if len(self.arguments) != 1:
-            self._write_stdout(
-                f"{self.command}: invalid number of arguments\n"
+            self._write_msg(
+                f"{self.command}: invalid number of arguments\n",
+                sys.stderr,
             )
             return False
 
@@ -205,9 +220,9 @@ class Shell:
         """
         Handle echo commands.
 
-        Write any given arguments to stdout.
+        Return the given arguments as-is to stdout.
         """
-        return f"{' '.join(self.arguments)}\n"
+        self.stdout_output = f"{' '.join(self.arguments)}\n"
 
     def type(self):
         """
@@ -224,16 +239,16 @@ class Shell:
 
         arg = self.arguments[0]
         if arg in self.builtins:
-            return f"{arg} is a shell builtin\n"
+            self.stdout_output = f"{arg} is a shell builtin\n"
+            return
 
         try:
             filepath = self._get_path_for_file(arg)
-            return f"{arg} is {filepath}\n"
+            self.stdout_output = f"{arg} is {filepath}\n"
         except ValueError:
-            return f"{arg}: not found\n"
+            self.stderr_output = f"{arg}: not found\n"
 
-    @staticmethod
-    def pwd():
+    def pwd(self):
         """
         Print the full path to the current working directory.
 
@@ -242,7 +257,7 @@ class Shell:
         CodeCrafters.io) `pwd` isn't locatable in any paths in the PATH
         environment variable so we'll handle it directly.
         """
-        return f'{os.getcwd()}\n'
+        self.stdout_output = f'{os.getcwd()}\n'
 
     def cd(self):
         """
@@ -259,7 +274,7 @@ class Shell:
         try:
             os.chdir(arg)
         except FileNotFoundError:
-            return f"cd: {arg}: No such file or directory\n"
+            self.stderr_output = f"cd: {arg}: No such file or directory\n"
 
     def run_external_program(self):
         """
@@ -267,8 +282,7 @@ class Shell:
 
         Attempt to locate the given command as a program in paths from
         the PATHS environment variable and run it with the given
-        arguments, then print any return from both stdout and stderr to
-        stdout.
+        arguments.
         """
         # will raise ValueError if no valid filepath exists
         filepath = self._get_path_for_file(self.command)
@@ -280,10 +294,8 @@ class Shell:
             stderr=subprocess.PIPE,
             text=True,
         )
-        if completed_process.stderr:
-            self._write_stdout(completed_process.stderr)
-
-        return completed_process.stdout
+        self.stderr_output = completed_process.stderr
+        self.stdout_output = completed_process.stdout
 
 
 def main():
