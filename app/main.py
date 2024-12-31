@@ -35,7 +35,7 @@ class Shell:
         self.exit())
         """
         self._read_commands()
-        if not self.command == "":
+        if self.command:
             self._handle_commands()
             self._write_output()
         self._handle()  # recursively loop until explicitly exited
@@ -54,7 +54,13 @@ class Shell:
         commands = input()
         if not commands:
             return
-        inputs = shlex.split(commands, posix=True)  # This feels like a cop-out
+
+        # Using shlex to automatically handle parsing single and double
+        # quotes in argument tokens feels like a massive cop-out for
+        # writing my own tokeniser, but it's NYE and I've got places
+        # to be...
+        inputs = shlex.split(commands, posix=True)
+
         self.command = inputs[0]
         self.arguments = inputs[1:]
         self._set_up_file_redirection()
@@ -71,7 +77,7 @@ class Shell:
         for i in range(len(self.arguments)):
             arg = self.arguments[i]
             for redirect_arg, std_type, file_mode in (
-                # ToDo: regex
+                # ToDo: regex (as it ever was) [explicit>implicit?]
                 (">",  "stdout", "w"),
                 ("1>", "stdout", "w"),
                 ("2>", "stderr", "w"),
@@ -85,7 +91,7 @@ class Shell:
                     arg_indexes_to_pop.append(i+1)
                     filename_var = f'filename_to_write_{std_type}'
                     setattr(self, filename_var, filename)
-                    # clear/create file if required
+                    # create and/or truncate file if required
                     open(filename, file_mode).close()
                     file_mode_var = f'{std_type}_file_mode'
                     setattr(self, file_mode_var, file_mode)
@@ -98,16 +104,12 @@ class Shell:
         """
         Handle the given command.
 
-        If the given command name matches a method name then call that
-        method.
-
-        If the given command name doesn't match any method names
-        then try to interpret the command as a request to
-        run an external program (from paths on the PATHS environment
-        variable).
+        If the given command name matches a built-in method then call
+        that method, otherwise try to interpret the command as a call to
+        an external program in a path in the PATHS environment variable.
 
         If the command does not match a valid method name or a valid
-        file path then write an error message to stdout.
+        file path then return an error message.
         """
         self.stdout_output = ""
         self.stderr_output = ""
@@ -119,7 +121,7 @@ class Shell:
         try:
             self.run_external_program()
         except ValueError:
-            # could not find a builtin with that name or a valid
+            # we could not find a builtin with that name or a valid
             # filepath in the PATHS environment variable for a program
             # with that name
             self.stderr_output = f"{self.command}: command not found\n"
@@ -260,12 +262,7 @@ class Shell:
 
     def pwd(self):
         """
-        Print the full path to the current working directory.
-
-        This /should/ already be handled by self.run_external_program,
-        for most systems/OSs, but on some (i.e. the CI server for
-        CodeCrafters.io) `pwd` isn't locatable in any paths in the PATH
-        environment variable so we'll handle it directly.
+        Print the full path for the current working directory.
         """
         self.stdout_output = f'{os.getcwd()}\n'
 
