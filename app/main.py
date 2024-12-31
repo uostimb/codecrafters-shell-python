@@ -282,7 +282,6 @@ class Shell:
         )
         if completed_process.stderr:
             self._write_stdout(completed_process.stderr)
-            return
 
         return completed_process.stdout
 
